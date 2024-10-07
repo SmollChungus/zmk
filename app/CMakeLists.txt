@@ -99,7 +99,6 @@ target_sources_ifdef(CONFIG_ZMK_LOW_PRIORITY_WORK_QUEUE app PRIVATE src/workqueu
 target_sources(app PRIVATE src/main.c)
 
 # custom RGB setup
-target_sources(app PRIVATE src/custom_leds.c src/custom_leds_init.c)
 
 add_subdirectory(src/display/)
 add_subdirectory_ifdef(CONFIG_SETTINGS src/settings/)
