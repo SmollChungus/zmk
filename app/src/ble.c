@@ -37,6 +37,9 @@ LOG_MODULE_DECLARE(zmk, CONFIG_ZMK_LOG_LEVEL);
 #include <zmk/event_manager.h>
 #include <zmk/events/ble_active_profile_changed.h>
 
+extern void bt_profile_led_blink(int profile);
+
+
 #if IS_ENABLED(CONFIG_ZMK_BLE_PASSKEY_ENTRY)
 #include <zmk/events/keycode_state_changed.h>
 
@@ -85,7 +88,9 @@ static bt_addr_le_t peripheral_addrs[ZMK_SPLIT_BLE_PERIPHERAL_COUNT];
 static void raise_profile_changed_event(void) {
     raise_zmk_ble_active_profile_changed((struct zmk_ble_active_profile_changed){
         .index = active_profile, .profile = &profiles[active_profile]});
+    bt_profile_led_blink(active_profile);
 }
+
 
 static void raise_profile_changed_event_callback(struct k_work *work) {
     raise_profile_changed_event();
