@@ -8,38 +8,42 @@ It contains:
 
 - A [keyboard scan (kscan) driver](../../config/kscan.md)
 - A [matrix transform](../../config/layout.md#matrix-transform)
-- (Optional) [Physical key positions](#physical-layout-positions)
+- (Optional) [Physical key positions](#optional-keys-property)
+
+By convention, physical layouts and any [position maps](#position-map) are defined in a separate file called `<your keyboard>-layouts.dtsi`.
+This file should then be imported by the appropriate file, such as an `.overlay`, `.dts`, or a `.dtsi` (the last of which is itself imported by one of the previous).
 
 ## Basic Physical Layout
 
-A basic physical layout without the `keys` property looks like this:
+A bare physical layout without the `keys` property looks like this:
 
-```dts
+```dts title="<your keyboard>-layouts.dtsi"
 / {
-    default_layout: default_layout {
+    physical_layout0: physical_layout_0 {
         compatible = "zmk,physical-layout";
         display-name = "Default Layout";
-        transform = <&default_transform>;
-        kscan = <&kscan0>;
     };
 };
 ```
 
-It is given a name, a matrix transform, and a kscan. If all of your physical layouts share the same kscan, then the `kscan` property can be omitted - in this case it needs to be set in the [`chosen` node](./new-shield.mdx#chosen-node). See the [configuration section on physical layouts](../../config/index.md) for reference.
+Every physical layout needs a matrix transform, and optionally can also have a kscan. By convention, these are assigned to the physical layout in the file where the matrix transform and kscan are defined:
+
+```dts title="<your keyboard>.dts | <your keyboard>.dtsi | <your keyboard>.overlay"
+&physical_layout0 {
+    kscan = <&kscan0>; // Label of the kscan node this layout uses
+    transform = <&default_transform>; // Label of the matrix transform this layout uses
+};
+```
+
+The `kscan` property only needs to be assigned if some of your physical layouts use different kscans. Otherwise, it can be omitted and the `kscan` can be assigned in the [`chosen` node](./new-shield.mdx#chosen-node) instead. See the [configuration section on physical layouts](../../config/layout.md#physical-layout) for reference.
 
 ## (Optional) Keys Property
 
-:::warning[Beta Feature]
-
-ZMK Studio is in beta. Although every effort has been made to provide a stable experience, you may still encounter issues during use. Please report any issues to [GitHub Issues](https://github.com/zmkfirmware/zmk-studio/issues).
-
-:::
-
-The `keys` property is required for [ZMK Studio](../../features/studio.md) support. It is used to describe the physical attributes of each key position present in that layout. If this property is used, then you should define the physical layouts and any [position maps](#position-map) in a file called `<your keyboard>-layouts.dtsi`. This file should then be imported by the appropriate file, such as an `.overlay`, `.dts`, or a `.dtsi` (last of which is itself imported by one of the previous).
+The `keys` property is required for [ZMK Studio](../../features/studio.md) support. It is used to describe the physical attributes of each key position present in that layout.
 
 To pull in the necessary definition for creating physical layouts with the `keys` property, a new include should be added to the top of the devicetree file:
 
-```
+```dts title="<your keyboard>-layouts.dtsi"
 #include <physical_layouts.dtsi>
 ```
 
@@ -56,15 +60,19 @@ A key description has the shape `<&key_physical_attrs w h x y r rx ry>` with the
 | Rotation X | int      | Rotation origin X position           | [centi-](https://en.wikipedia.org/wiki/Centi-)"keyunit" |
 | Rotation Y | int      | Rotation origin Y position           | [centi-](https://en.wikipedia.org/wiki/Centi-)"keyunit" |
 
-:::tip
 You can specify negative values in devicetree using parentheses around it, e.g. `(-3000)` for a 30 degree counterclockwise rotation.
+
+:::tip
+
+We recommend the use of [this tool](https://zmk-physical-layout-converter.streamlit.app/) for writing a physical layout or converting one from a QMK JSON definition. If your keyboard already has a physical layout defined for the use with KLE, we recommend using [this other tool](https://nickcoutsos.github.io/keymap-layout-tools/) first to convert your existing layout into QMK JSON. The second tool can also import the position data from KiCAD, if said program was used to design the keyboard.
+
 :::
 
 ### Physical Layout with Keys Example
 
 Here is an example of a physical layout for a 2x2 macropad:
 
-```dts
+```dts title="macropad-layouts.dtsi"
 #include <physical_layouts.dtsi>
 
 / {
@@ -90,7 +98,7 @@ To use such layouts, import them and assign their `transform` and (optionally) `
 
 Here is an example of using the predefined physical layouts for a keyboard with the same layout as the "ferris":
 
-```dts
+```dts title="ferris.dtsi"
 #include <layouts/cuddlykeyboards/ferris.dtsi>
 
 // Assigning suitable kscan and matrix transforms
@@ -104,7 +112,7 @@ Shared physical layouts found in the same folder are defined such that they can 
 
 Here is an example of using the predefined physical layouts for a 60% keyboard:
 
-```dts
+```dts title="bt60_v1.dts"
 #include <layouts/common/60percent/all1u.dtsi>
 #include <layouts/common/60percent/ansi.dtsi>
 #include <layouts/common/60percent/hhkb.dtsi>
@@ -138,7 +146,7 @@ Here is an example of using the predefined physical layouts for a 60% keyboard:
 If a keyboard has multiple possible layouts (e.g. you can snap off an outer column), then you should define multiple matrix transformations and multiple physical layouts, one for each possible layout.
 If necessary, you can also define multiple kscan instances.
 
-```dts
+```dts title="<your keyboard>-layouts.dtsi"
 // Needed if and only if keys property is used
 #include <physical_layouts.dtsi>
 
@@ -165,9 +173,15 @@ If necessary, you can also define multiple kscan instances.
 
 When switching between layouts using [ZMK Studio](../../features/studio.md), an attempt is made to automatically infer bindings for the keys in the new layout from the old layout. Keys with the same physical key properties are given the same binding. This approach has some limitations, so for more accurate transference of bindings a position map is used.
 
+:::warning
+
+Keys whose positions can neither be inferred from the default layout nor have bindings in the position map cannot be assigned to.
+
+:::
+
 A position map looks something like this:
 
-```dts
+```dts title="<your keyboard>-layouts.dtsi"
 / {
     position_map {
         compatible = "zmk,physical-layout-position-map";
@@ -193,11 +207,17 @@ The position map should be marked as `complete` if all desired binding transfers
 
 See also the [configuration section on position maps](../../config/layout.md#physical-layout-position-map).
 
+:::tip
+
+We recommend the use of [this tool](https://zmk-layout-helper.netlify.app/), distinct from the previous two mentioned, for the purposes of writing a position map.
+
+:::
+
 #### Writing a position map
 
 Start by creating the parent node defining the position map:
 
-```dts
+```dts title="<your keyboard>-layouts.dtsi"
 / {
     keypad_position_map {
         compatible = "zmk,physical-layout-position-map";
@@ -216,7 +236,7 @@ It is easiest to write the position map by considering one layout to be the "ref
 
 Create the child node for the reference layout, and fill the `positions` array by counting upwards, giving it the same order and number of keys as the `keys` property of its physical layout. For a 2x2 macropad the child node would be
 
-```dts
+```dts title="2x2macropad-layouts.dtsi"
 / {
     keypad_position_map {
         // Other properties
@@ -241,7 +261,7 @@ Consider the following macropad/numpad with two physical layouts:
 
 Let us first consider each side individually. The "reference" position map of the left side would look like this:
 
-```dts
+```dts title="macropad-layouts.dtsi"
 / {
     keypad_position_map {
         // Other properties
@@ -261,7 +281,7 @@ Let us first consider each side individually. The "reference" position map of th
 
 Meanwhile, the "reference" position map of the right side with fewer keys would look like this:
 
-```dts
+```dts title="macropad-layouts.dtsi"
 / {
     keypad_position_map {
         // Other properties
@@ -283,9 +303,9 @@ As a reminder, the `positions` property is a one-dimensional array like the `key
 
 If the left side with more keys was used as the reference layout, then the overall position map of the keyboard would look like this:
 
-```dts
+```dts title="macropad-layouts.dtsi"
 / {
-    keypad_lossless_position_map {
+    keypad_position_map1 {
         compatible = "zmk,physical-layout-position-map";
         complete;
 
@@ -316,9 +336,9 @@ The "missing" positions are filled with the "spare" numbers of the layout with m
 
 If the right side with fewer keys were used as a reference instead, then the overall position map would look like this:
 
-```dts
+```dts title="macropad-layouts.dtsi"
 / {
-    keypad_lossy_position_map {
+    keypad_position_map2 {
         compatible = "zmk,physical-layout-position-map";
         complete;
 
@@ -345,7 +365,7 @@ If the right side with fewer keys were used as a reference instead, then the ove
 };
 ```
 
-The above example is "lossy" because (unlike the previous "lossless" example) if a user switches from the macropad layout to the numpad layout _and then_ switches from the numpad layout back to the macropad layout, the assignments to the keys present but not listed in the macropad's map are lost.
+There is functionally no difference between the two approaches, but the first approach is recommended.
 
 #### Example non-`complete` position map
 
@@ -353,9 +373,9 @@ Consider the above device again -- most of the positions have identical `keys` p
 
 A non-`complete` position map can be used to assign mappings to only these particular keys:
 
-```dts
+```dts title="macropad-layouts.dtsi"
 / {
-    keypad_lossy_position_map {
+    keypad_position_map3 {
         compatible = "zmk,physical-layout-position-map";
 
         macropad_map: macropad {
@@ -371,31 +391,11 @@ A non-`complete` position map can be used to assign mappings to only these parti
 };
 ```
 
-This is noticably simpler to write, and can be a useful way of saving flash space for memory-constrained devices. The above is a "lossy" mapping, though. While "lossless" non-`complete` mappings are possible, they can be counter-intuitive enough that it may be easier to write the full position map instead.
-
-For completeness, the equivalent "lossless" non-`complete` position map is shown below:
-
-```dts
-/ {
-    keypad_lossy_position_map {
-        compatible = "zmk,physical-layout-position-map";
-
-        macropad_map: macropad {
-            physical-layout = <&macropad_layout>;
-            positions = <7 11 15 19 16 17>;
-        };
-
-        numpad_map: numpad {
-            physical-layout = <&numpad_layout>;
-            positions = <7 19 14 18 15 17>;
-        };
-    };
-};
-```
+This is noticably simpler to write, and can be a useful way of saving flash space for memory-constrained devices.
 
 #### Additional example: corne
 
-The following is an example of a "lossless" position map which maps the 5-column and 6-column Corne keymap layouts. The 6 column layout is the reference layout.
+The following is an example of a position map which maps the 5-column and 6-column Corne keymap layouts. The 6 column layout is the reference layout.
 
 ```dts
     foostan_corne_lossless_position_map {
@@ -423,30 +423,4 @@ The following is an example of a "lossless" position map which maps the 5-column
     };
 ```
 
-Meanwhile, the "lossy" version of the same position map with the 5 column version as reference looks like this:
-
-```dts
-    foostan_corne_lossy_position_map {
-        compatible = "zmk,physical-layout-position-map";
-
-        complete;
-
-        twelve_map: twelve {
-            physical-layout = <&foostan_corne_6col_layout>;
-            positions
-                = < 1  2  3  4  5  6  7  8  9 10>
-                , <13 14 15 16 17 18 19 20 21 22>
-                , <25 26 27 28 29 30 31 32 33 34>
-                , <      36 37 38 39 40 41      >;
-        };
-
-        ten_map: ten {
-            physical-layout = <&foostan_corne_5col_layout>;
-            positions
-                = < 0  1  2  3  4  5  6  7  8  9>
-                , <10 11 12 13 14 15 16 17 18 19>
-                , <20 21 22 23 24 25 26 27 28 29>
-                , <      30 31 32 33 34 35      >;
-        };
-    };
-```
+The above position map is in actuality spread over [multiple files](https://github.com/zmkfirmware/zmk/tree/main/app/dts/layouts/foostan/corne), as one of our predefined layouts.
